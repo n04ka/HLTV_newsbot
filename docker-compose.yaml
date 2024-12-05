@@ -1,0 +1,53 @@
+name: HLTV-telebot
+
+services:
+
+  postgres:
+    image: postgres:13.3
+    container_name: database
+    command: ["postgres", "-c", "config_file=/etc/postgresql.conf", "-c", "log_statement=all"]
+    environment:
+      POSTGRES_DB: "hltv"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "1337"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./ArticleDB/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./ArticleDB/postgresql.conf:/etc/postgresql.conf
+
+  chrome:
+    container_name: parser
+    build:
+      context: ./HLTV_fetcher
+    ports:
+      - 5900:5900
+    volumes:
+      - ./HLTV_fetcher/app:/app
+    shm_size: '2g'
+    depends_on:
+      - postgres
+      - translator
+      - bot
+    restart: on-failure
+
+  translator:
+    container_name: translator
+    build:
+      context: ./HLTV_translator
+    ports:
+      - 80:80
+    depends_on:
+      - postgres
+      - bot
+    restart: on-failure
+
+  bot:
+    container_name: bot
+    build:
+      context: ./HLTV_tg_bot
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+    restart: on-failure
